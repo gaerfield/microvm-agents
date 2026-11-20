@@ -104,8 +104,23 @@ or runner; the private flake owns all instances.
 
 ### Private instances in a separate flake
 
-In a sibling directory, create another flake with `microvm-agents` as an input
-(`github:gaerfield/microvm-agents`). Its entire output definition can be:
+Initialize a private instance project in an empty directory:
+
+```bash
+nix flake init -t github:gaerfield/microvm-agents
+```
+
+The default template contains a small private flake, an example VM definition,
+a README, an `.envrc` for nix-direnv, and a `.gitignore`. Edit the example's
+absolute `workspace` path and `authorizedKeys` (paste your **public** key text)
+before starting it. The example installs Copilot CLI; log in inside the VM,
+never in a Nix definition. Run `nix flake lock` to pin the input. If the new
+project is a Git repository, add the template files to Git so the flake can
+see them. `nix flake init` copies files; it cannot ask for your workspace or
+key. See [the template instructions](templates/default/README.md) for details.
+
+Alternatively, create a sibling flake yourself with `microvm-agents` as an
+input (`github:gaerfield/microvm-agents`). Its minimal output definition can be:
 
 ```nix
 outputs = { self, microvm-agents }:
@@ -260,3 +275,9 @@ make sure that the bottom part stays intact.
 
 Move mutable images to per-instance runtime directories outside the flake
 source tree; the factory-generated private example has been validated.
+
+# Links
+
+* [coding-agent-microvm-nix Blog article](https://michael.stapelberg.ch/posts/2026-02-01-coding-agent-microvm-nix): thats the original idea 
+* [razvanz/nixbox](https://github.com/razvanz/nixbox)
+* [hamidr/nixcage](https://github.com/hamidr/nixcage)

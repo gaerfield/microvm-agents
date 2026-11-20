@@ -25,5 +25,10 @@
       lib.mkInstances = import ./lib/mkInstances.nix {
         inherit nixpkgs mkAgentVM system;
       };
+
+      templates.default = {
+        path = ./templates/default;
+        description = "Private microvm-agents instance project";
+      };
     };
 }
