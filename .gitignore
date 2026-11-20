@@ -111,7 +111,8 @@ fabric.properties
 .LSOverride
 
 # Icon must end with two \r
-Icon
+Icon
+
 
 # Thumbnails
 ._*
@@ -189,7 +190,9 @@ $RECYCLE.BIN/
 *.img
 playground
 
-# ignore instances by default, except the example
-instances
-!instances/agent-example.nix
+# Legacy local instances are ignored; active instances live in a separate project.
+/instances/
+
+# Local direnv settings (e.g. MICROVM_INSTANCES_DIR)
+/.envrc.local
 

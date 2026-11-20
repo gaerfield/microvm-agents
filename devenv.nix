@@ -1,15 +1,6 @@
 { pkgs, ... }:
 
 let
-  directory = builtins.readDir ./instances;
-  instanceFiles = builtins.filter
-    (file: directory.${file} == "regular"
-      && pkgs.lib.hasSuffix ".nix" file)
-    (builtins.attrNames directory);
-  instanceNames = map (pkgs.lib.removeSuffix ".nix") instanceFiles;
-  instanceCases = builtins.concatStringsSep "\n" (map (name: ''
-    ${pkgs.lib.escapeShellArg name}) sshPort=${toString (import (./instances + "/${name}.nix")).sshPort}; serviceName=${pkgs.lib.escapeShellArg "microvm-${name}"} ;;
-  '') instanceNames);
   selectVm = ''
     if [ "$#" -gt 1 ]; then
       echo "Usage: $(basename "$0") [instance-name]" >&2
@@ -19,7 +10,6 @@ let
     vmName="''${1:-my-microvm}"
     case "$vmName" in
       my-microvm) sshPort=2222; serviceName=microvm-one ;;
-      ${instanceCases}
       *) echo "Unknown VM: $vmName" >&2; exit 2 ;;
     esac
   '';

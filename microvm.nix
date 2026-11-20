@@ -19,7 +19,7 @@
     createHome = true;
     password = "";
     openssh.authorizedKeys.keys = [
-      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAILSDS1Cu29GbFjeOfUd+p3ztIXQz5wLbuXwQZzx3fP1E agent@microvm.local"
+      "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMO1ZNA66lSBE9v8Y0g+JlWwnnU9wUXK+t/p9X6hc50Q agent@microvm.local"
     ];
   };
   security.sudo.enable = false;

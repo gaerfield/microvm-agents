@@ -19,33 +19,19 @@
       mkAgentVM = import ./lib/mkAgentVM.nix {
         inherit nixpkgs microvm system;
       };
-      lib = nixpkgs.lib;
-      instanceFiles = lib.filterAttrs
-        (file: type: type == "regular" && lib.hasSuffix ".nix" file)
-        (builtins.readDir ./instances);
-      instances = lib.mapAttrs'
-        (file: _: lib.nameValuePair
-          (lib.removeSuffix ".nix" file)
-          (import (./instances + "/${file}")))
-        instanceFiles;
-      instanceConfigurations = nixpkgs.lib.mapAttrs
-        (name: args: mkAgentVM (args // { inherit name; }))
-        instances;
-    in assert lib.assertMsg (!(builtins.hasAttr "my-microvm" instances))
-      "instances/my-microvm.nix would shadow the reference VM";
+    in
     {
       lib.mkAgentVM = mkAgentVM;
+      lib.mkInstances = import ./lib/mkInstances.nix {
+        inherit nixpkgs mkAgentVM system;
+      };
 
-      packages.${system} =
-        nixpkgs.lib.mapAttrs
-          (name: _: self.nixosConfigurations.${name}.config.microvm.declaredRunner)
-          instances
-        // {
+      packages.${system} = {
           default = self.packages.${system}.my-microvm;
           my-microvm = self.nixosConfigurations.my-microvm.config.microvm.declaredRunner;
-        };
+      };
 
-      nixosConfigurations = instanceConfigurations // {
+      nixosConfigurations = {
         my-microvm = nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [
