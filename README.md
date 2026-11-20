@@ -9,11 +9,11 @@ Each VM uses a dedicated Git worktree and the project's existing `devenv` config
 Example lifecycle:
 
 ```bash
-vm-create server-feature-578 --workspace /path/to/worktree
-vm-start server-feature-578
-vm-ssh server-feature-578
-vm-stop server-feature-578
-vm-destroy server-feature-578
+vm create server-feature-578 --workspace /path/to/worktree
+vm start server-feature-578
+vm ssh server-feature-578
+vm stop server-feature-578
+vm destroy server-feature-578
 ```
 
 These commands describe the **planned interface**, not the current implementation.
@@ -29,7 +29,8 @@ microvm-agents/                # Public, reusable library
 │   └── podman.nix         # Rootless Podman, Testcontainers
 └── lib/
   ├── mkAgentVM.nix        # Reusable instance factory
-  └── mkInstances.nix      # Instance discovery, outputs, host commands
+  ├── mkInstances.nix      # Instance discovery and flake outputs
+  └── vm-cli.nix           # Host-side vm command
 
 microvm-agents-instances/      # Separate private project
 ├── flake.nix                # Calls public mkInstances with ./instances
@@ -100,13 +101,15 @@ outputs = { self, microvm-agents }:
 ```
 
 `mkInstances` discovers the private definitions and exposes VM configurations,
-runner packages, and a dev shell with lifecycle scripts. No private
+runner packages, and a dev shell with the `vm` command. The dev shell also
+installs Fish completions for its actions and discovered instance names; start
+Fish after entering the shell to load them. No private
 `devenv.nix` or copied scripts are needed; run `nix develop` in that directory
-to enter the shell, or `nix develop --command vm-status agent-example` to run a
-single command. Run `vm-start` from the private flake directory: it evaluates
+to enter the shell, or `nix develop --command vm status agent-example` to run a
+single command. Run `vm start` from the private flake directory: it evaluates
 `nix run .#<name>` there so Nix can access and, if necessary, update the local
-lock file. Failed systemd units are retained for `vm-status` and `vm-logs`;
-`vm-start` clears a previous failure before attempting another start.
+lock file. Failed systemd units are retained for `vm status` and `vm logs`;
+`vm start` clears a previous failure before attempting another start.
 
 For local development before the public library changes are pushed, point the
 private flake at the working tree with `nix flake lock --allow-dirty-locks
@@ -122,7 +125,7 @@ do not place secrets in them.
 
 Each regular `.nix` file in the private `instances/` directory defines one VM.
 Its filename without `.nix` is the VM name (for instance, `agent-example.nix`
-becomes `vm-start agent-example`); do not set `name` in the file. A definition
+becomes `vm start agent-example`); do not set `name` in the file. A definition
 is an attribute set such as:
 
 ```nix
@@ -130,7 +133,7 @@ is an attribute set such as:
   workspace = "/absolute/path/to/worktree";
   sshPort = 2223;
   authorizedKeys = [ "ssh-ed25519 YOUR_PUBLIC_KEY" ];
-  sshIdentityPath = "~/.ssh/microvm-agent"; # optional, used by vm-ssh on the host
+  sshIdentityPath = "~/.ssh/microvm-agent"; # optional, used by vm ssh on the host
   # memory = 8192;
   # vcpu = 4;
 }
@@ -143,22 +146,37 @@ inside the guest.
 
 `authorizedKeys` contains public key **contents**, not paths. Nix cannot read
 an ignored host file from `~/.ssh` during pure flake evaluation. The optional
-`sshIdentityPath` is a host-side path to the matching private key: `vm-ssh`
+`sshIdentityPath` is a host-side path to the matching private key: `vm ssh`
 expands a leading `~/` at runtime and uses `ssh -i` with `IdentitiesOnly=yes`.
 It is not passed into the guest VM or copied into the Nix store as key data.
-Without it, `vm-ssh` uses SSH's normal identity selection. Never put private
+Without it, `vm ssh` uses SSH's normal identity selection. Never put private
 key contents into a Nix definition.
 
-From the private directory, use `nix run .#agent-example` or enter `nix develop` and run
-`vm-start agent-example`, `vm-status agent-example`, `vm-logs agent-example`,
-`vm-ssh agent-example`, or `vm-stop agent-example`. The
-scripts require an instance name and reject unknown names.
+From the private directory, use `nix run .#agent-example` or enter `nix develop`
+and run `vm start agent-example`, `vm status agent-example`, `vm logs
+agent-example`, `vm ssh agent-example`, or `vm stop agent-example`. The single
+`vm` command requires an action and instance name and rejects unknown values.
 
 The new instance currently uses name-prefixed image files relative to the
 runner's working directory. Persistent per-instance runtime directories and
 `vm-create`/`vm-destroy` commands are the next step; do not start two runners
 with the same instance name or working directory images. Legacy image files
 in the public repository root are not migrated or removed by this change.
+
+### changing the gitignore file
+
+The [`.gitignore`](.gitignore) file is generated using the service [gitignore.io](https://www.gitignore.io/):
+```shell
+# get a list of templates
+curl -sL https://www.gitignore.io/api/list
+# generate a gitignore using the following command:
+curl -sL https://www.gitignore.io/api/intellij+all,linux,windows,visualstudiocode
+```
+The command that were used to generate the [`.gitignore`](/.gitignore) in this repository is
+documented in the file itself. Generated content is located at the top of the file. Manually
+added content is located at the bottom. When updating the file with new generated patterns,
+make sure that the bottom part stays intact.
+
 
 ## Remaining work
 
@@ -183,13 +201,13 @@ in the public repository root are not migrated or removed by this change.
 Implement commands such as:
 
 ```text
-vm-create
-vm-start
-vm-stop
-vm-status
-vm-logs
-vm-ssh
-vm-destroy
+vm create
+vm start
+vm stop
+vm status
+vm logs
+vm ssh
+vm destroy
 ```
 
 `vm-destroy` should stop the VM and remove its instance-specific runtime state, including Podman images and containers. Deleting the Git worktree should be a separate, explicit operation to avoid losing uncommitted changes.
@@ -216,19 +234,3 @@ vm-destroy
 
 Move mutable images to per-instance runtime directories outside the flake
 source tree; the factory-generated private example has been validated.
-
-# changing the gitignore file
-
-The [`.gitignore`](.gitignore) file is generated using the service [gitignore.io](https://www.gitignore.io/):
-```shell
-# get a list of templates
-curl -sL https://www.gitignore.io/api/list
-# generate a gitignore using the following command:
-curl -sL https://www.gitignore.io/api/intellij+all,linux,windows,visualstudiocode
-```
-The command that were used to generate the [`.gitignore`](/.gitignore) in this repository is
-documented in the file itself. Generated content is located at the top of the file. Manually
-added content is located at the bottom. When updating the file with new generated patterns,
-make sure that the bottom part stays intact.
-
-
