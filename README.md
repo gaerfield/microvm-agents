@@ -21,9 +21,8 @@ These commands describe the **planned interface**, not the current implementatio
 ## Project layout
 
 ```text
-microvm-agents/                # Public, reusable library and reference VM
+microvm-agents/                # Public, reusable library
 ├── flake.nix
-├── devenv.nix               # Reference VM lifecycle commands
 ├── modules/
 │   ├── base.nix           # QEMU, networking, SSH, Nix
 │   ├── agent.nix          # Agent user, CLI, home persistence
@@ -83,12 +82,12 @@ Already working:
 - Rootless Podman with Docker-compatible API socket.
 - VM startup via `systemd-run --user`.
 - Graceful shutdown via QMP.
-- Host-side lifecycle scripts in `devenv.nix`.
+- Host-side lifecycle commands provided through the private flake's dev shell.
 
 Shared guest configuration is now in `modules/base.nix`, `modules/agent.nix`
 and `modules/podman.nix`. `lib/mkAgentVM.nix` composes them; the flake
-exposes `lib.mkAgentVM` and `lib.mkInstances`. The public flake contains only
-the original `my-microvm` reference VM and its default runner.
+exposes `lib.mkAgentVM` and `lib.mkInstances`. It no longer defines its own VM
+or runner; the private flake owns all instances.
 
 ### Private instances in a separate flake
 
@@ -140,7 +139,7 @@ is an attribute set such as:
 Give every simultaneously running instance a distinct name and SSH port. The
 factory defaults to 8192 MiB RAM and 4 vCPUs; supply `authorizedKeys`
 explicitly to allow SSH access. The project worktree is mounted at `/workspace`
-(the reference VM still mounts `/playground`).
+inside the guest.
 
 `authorizedKeys` contains public key **contents**, not paths. Nix cannot read
 an ignored host file from `~/.ssh` during pure flake evaluation. The optional
@@ -153,15 +152,13 @@ key contents into a Nix definition.
 From the private directory, use `nix run .#agent-example` or enter `nix develop` and run
 `vm-start agent-example`, `vm-status agent-example`, `vm-logs agent-example`,
 `vm-ssh agent-example`, or `vm-stop agent-example`. The
-private scripts require an instance name and reject unknown names. From the
-public directory, omitting a name still selects the original `my-microvm`
-reference VM (and preserves its SSH alias).
+scripts require an instance name and reject unknown names.
 
 The new instance currently uses name-prefixed image files relative to the
 runner's working directory. Persistent per-instance runtime directories and
 `vm-create`/`vm-destroy` commands are the next step; do not start two runners
-with the same instance name or working directory images. Existing image files
-in the repository root belong to the reference VM and are not migrated.
+with the same instance name or working directory images. Legacy image files
+in the public repository root are not migrated or removed by this change.
 
 ## Remaining work
 
@@ -217,9 +214,8 @@ vm-destroy
 
 ## Next step
 
-Validate the factory-generated example VM against the still-working reference,
-then move its mutable images to per-instance runtime directories outside the
-flake source tree. Do not remove the reference VM before that validation.
+Move mutable images to per-instance runtime directories outside the flake
+source tree; the factory-generated private example has been validated.
 
 # changing the gitignore file
 
