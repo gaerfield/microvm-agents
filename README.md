@@ -9,14 +9,19 @@ Each VM uses a dedicated Git worktree and the project's existing `devenv` config
 Example lifecycle:
 
 ```bash
-vm create server-feature-578 --workspace /path/to/worktree
+vm create server-feature-578 --workspace /path/to/worktree --ssh-port 2224 --identity "$HOME/.ssh/microvm-agent"
 vm start server-feature-578
 vm ssh server-feature-578
 vm stop server-feature-578
 vm destroy server-feature-578
+vm orphaned
 ```
 
-These commands describe the **planned interface**, not the current implementation.
+`vm create` writes a private instance definition; re-enter `nix develop` before
+using the new name. `vm destroy` removes the definition and its persistent VM
+images after confirmation, but never deletes a worktree. `vm orphaned` lists
+data directories with no matching definition. `vm start` still requires the
+private flake directory as its working directory.
 
 ## Project layout
 
@@ -40,14 +45,21 @@ microvm-agents-instances/      # Separate private project
 Runtime state is kept separately, outside the flake:
 
 ```text
-~/.local/share/microvms/
+~/.local/share/microvm-agents/     # or $XDG_DATA_HOME/microvm-agents/
 ├── server-feature-578/
-│   ├── var.img
-│   ├── agent-home.img
-│   └── podman.img
+│   ├── server-feature-578-var.img
+│   ├── server-feature-578-agent-home.img
+│   └── server-feature-578-podman.img
 └── server-feature-579/
     └── ...
 ```
+
+Disk images contain the VM's home directory, SSH host keys, `/var`, and Podman
+storage. They are **persistent data**, not disposable caches: deleting them
+loses the VM's state. This is why the default is `~/.local/share` (or
+`$XDG_DATA_HOME`), not `~/.cache`. On hosts with an ephemeral home directory,
+ensure this data directory is persistent or set `XDG_DATA_HOME` to a persistent
+location before starting a VM.
 
 ## Instance factory
 
@@ -107,8 +119,11 @@ Fish after entering the shell to load them. No private
 `devenv.nix` or copied scripts are needed; run `nix develop` in that directory
 to enter the shell, or `nix develop --command vm status agent-example` to run a
 single command. Run `vm start` from the private flake directory: it evaluates
-`nix run .#<name>` there so Nix can access and, if necessary, update the local
-lock file. Failed systemd units are retained for `vm status` and `vm logs`;
+the writable flake from there while starting the VM in its per-instance data
+directory under `$XDG_DATA_HOME/microvm-agents` (default:
+`~/.local/share/microvm-agents`). Relative image paths resolve there. Running
+`nix run .#<name>` directly instead uses the caller's working directory for its
+images. Failed systemd units are retained for `vm status` and `vm logs`;
 `vm start` clears a previous failure before attempting another start.
 
 For local development before the public library changes are pushed, point the
@@ -157,11 +172,11 @@ and run `vm start agent-example`, `vm status agent-example`, `vm logs
 agent-example`, `vm ssh agent-example`, or `vm stop agent-example`. The single
 `vm` command requires an action and instance name and rejects unknown values.
 
-The new instance currently uses name-prefixed image files relative to the
-runner's working directory. Persistent per-instance runtime directories and
-`vm-create`/`vm-destroy` commands are the next step; do not start two runners
-with the same instance name or working directory images. Legacy image files
-in the public repository root are not migrated or removed by this change.
+Each instance uses name-prefixed image files in its own persistent directory.
+`vm destroy` requests a graceful shutdown, waits for the user service to stop,
+and only then removes the directory and instance definition; it refuses to
+remove state if shutdown cannot be verified. Legacy image files in the private
+flake directory and project worktrees are never deleted automatically.
 
 ### changing the gitignore file
 
@@ -180,12 +195,9 @@ make sure that the bottom part stays intact.
 
 ## Remaining work
 
-### 1. Persistent state
+### 1. Persistent state follow-up
 
-- Give every instance its own runtime directory.
-- Persist `/var`, `/home/agent` and rootless Podman storage across VM restarts.
-- Ensure runtime directories survive host impermanence.
-- Keep mutable disk images outside the Nix flake source tree.
+- Ensure the host data directory survives host impermanence.
 - Verify nested mounts and filesystem ownership.
 
 ### 2. Agent installation and authentication
@@ -196,21 +208,10 @@ make sure that the bottom part stays intact.
 - Avoid sharing a writable agent home directory or exposing host SSH credentials.
 - Ensure credentials are removed when an instance is destroyed.
 
-### 3. Instance lifecycle
+### 3. Instance lifecycle follow-up
 
-Implement commands such as:
-
-```text
-vm create
-vm start
-vm stop
-vm status
-vm logs
-vm ssh
-vm destroy
-```
-
-`vm-destroy` should stop the VM and remove its instance-specific runtime state, including Podman images and containers. Deleting the Git worktree should be a separate, explicit operation to avoid losing uncommitted changes.
+- Refresh an existing `nix develop` shell after adding or removing definitions.
+- Consider separately managing Git worktrees; destroying a VM never deletes one.
 
 ### 4. Development workflow
 
