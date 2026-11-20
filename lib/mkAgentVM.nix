@@ -6,6 +6,8 @@
 , memory ? 8192
 , vcpu ? 4
 , authorizedKeys ? [ ]
+, extraPackages ? [ ]
+, pkgs ? null
 }:
 
 let
@@ -25,12 +27,12 @@ assert lib.assertMsg (memory > 0 && vcpu > 0)
 lib.nixosSystem {
   inherit system;
   specialArgs = {
-    inherit name workspace sshPort memory vcpu mac authorizedKeys;
+    inherit name workspace sshPort memory vcpu mac authorizedKeys extraPackages;
   };
   modules = [
     microvm.nixosModules.microvm
     ../modules/base.nix
     ../modules/agent.nix
     ../modules/podman.nix
-  ];
+  ] ++ lib.optional (pkgs != null) { nixpkgs.pkgs = pkgs; };
 }

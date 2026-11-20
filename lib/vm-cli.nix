@@ -39,7 +39,8 @@ let
       }
 
       nixString() {
-        # shellcheck disable=SC2016 -- jq, not the shell, expands $value.
+        # jq, not the shell, expands $value.
+        # shellcheck disable=SC2016
         jq -Rn --arg value "$1" '$value'
       }
 

@@ -1,4 +1,4 @@
-{ pkgs, name, workspace, sshPort, memory, vcpu, mac, ... }:
+{ pkgs, name, workspace, sshPort, memory, vcpu, mac, extraPackages, ... }:
 
 {
   system.stateVersion = "26.11";
@@ -8,7 +8,7 @@
 
   users.users.root.password = "";
   security.sudo.enable = false;
-  environment.systemPackages = with pkgs; [ git ];
+  environment.systemPackages = [ pkgs.git ] ++ extraPackages;
 
   services.openssh = {
     enable = true;

@@ -154,6 +154,32 @@ is an attribute set such as:
 }
 ```
 
+To install additional guest software, a definition may instead be a function
+receiving the pinned `pkgs` set. Existing plain attribute-set definitions
+remain valid. For example:
+
+```nix
+{ pkgs }:
+
+{
+  workspace = "/absolute/path/to/worktree";
+  sshPort = 2223;
+  authorizedKeys = [ "ssh-ed25519 YOUR_PUBLIC_KEY" ];
+  extraPackages = [ pkgs.github-copilot-cli ];
+}
+```
+
+`extraPackages` defaults to an empty list and adds Nix package values to the
+guest's system packages alongside `git`; it does not install tools on the host.
+`mkInstances` accepts an optional `pkgs` argument so the same configured
+package set can be used by both the instance definitions and the guest; the
+private flake uses it to allow the unfree Copilot CLI package specifically.
+`vm create` writes a plain definition: edit it into the function form above to
+add packages. Rebuild/restart the VM to use a changed package list. Log in to
+the CLI separately in the guest; its home directory persists across restarts,
+but is removed by `vm destroy`. Never put authentication tokens in Nix files:
+their contents are copied into the Nix store.
+
 Give every simultaneously running instance a distinct name and SSH port. The
 factory defaults to 8192 MiB RAM and 4 vCPUs; supply `authorizedKeys`
 explicitly to allow SSH access. The project worktree is mounted at `/workspace`
@@ -200,9 +226,8 @@ make sure that the bottom part stays intact.
 - Ensure the host data directory survives host impermanence.
 - Verify nested mounts and filesystem ownership.
 
-### 2. Agent installation and authentication
+### 2. Agent authentication
 
-- Install and configure GitHub Copilot CLI (and optionally Codex CLI).
 - Authenticate using the company account.
 - Find a secure way to provision credentials into disposable VMs without requiring login for every instance.
 - Avoid sharing a writable agent home directory or exposing host SSH credentials.
